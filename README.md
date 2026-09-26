@@ -38,4 +38,5 @@ To make the AI model's results interpretable and actionable for human reviewers,
 - Reorders the dataset columns to highlight actionable fields first (`Risk Score`, `Amount`, `Time`).
 - Provides a clean, staggered-animation UI powered by Chart.js for visualization.
 
-![Dashboard Preview](dashboard.png)
+<img width="1280" height="731" alt="image" src="https://github.com/user-attachments/assets/b64c6d95-3f07-4375-937b-76802c091b09" />
+
