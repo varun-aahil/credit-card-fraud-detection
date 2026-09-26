@@ -30,3 +30,12 @@ The Tech Stack:
 * Language: Python
 
 * Libraries used: Sklearn, Pandas, Numpy, Matplotlib
+
+## Fraud Detection UI Dashboard
+
+To make the AI model's results interpretable and actionable for human reviewers, a sophisticated glassmorphism web dashboard was built. 
+- Automatically extracts the raw anomaly decision score and normalizes it into a **0-100 Risk Score**.
+- Reorders the dataset columns to highlight actionable fields first (`Risk Score`, `Amount`, `Time`).
+- Provides a clean, staggered-animation UI powered by Chart.js for visualization.
+
+![Dashboard Preview](dashboard.png)
