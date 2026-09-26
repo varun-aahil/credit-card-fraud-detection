@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Detection Batch Processor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #030712; /* Very dark blue/black */
+            --glass-bg: rgba(17, 24, 39, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.15);
+            
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --accent: #8b5cf6;
+            --accent-glow: rgba(139, 92, 246, 0.5);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.5);
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Background Orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -1;
+            animation: float 20s infinite alternate;
+        }
+
+        .orb-1 {
+            width: 500px;
+            height: 500px;
+            background: var(--primary-glow);
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent-glow);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 300px;
+            height: 300px;
+            background: var(--danger-glow);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        /* Dashboard Container */
+        .dashboard {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-highlight);
+            border-radius: 32px;
+            padding: 3rem;
+            width: 90%;
+            max-width: 550px;
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8),
+                        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+            transition: max-width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        transform 0.4s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .dashboard.expanded {
+            max-width: 1100px;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-size: 1.05rem;
+            text-align: center;
+            font-weight: 300;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 20px;
+            padding: 4rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            background: rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, var(--primary-glow) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .upload-zone:hover::before, .upload-zone.dragover::before {
+            opacity: 0.15;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px var(--primary-glow);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+            transition: all 0.4s ease;
+        }
+
+        .upload-zone:hover .upload-icon, .upload-zone.dragover .upload-icon {
+            color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .file-name {
+            display: block;
+            margin-top: 1rem;
+            font-size: 1rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 1.2rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            font-family: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px var(--accent-glow);
+        }
+
+        .btn:hover:not(:disabled)::after {
+            left: 150%;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: var(--glass-border);
+        }
+
+        /* Results View */
+        #resultsView {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease 0.3s;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 1rem;
+        }
+
+        .results-header h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .top-panels {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .top-panels {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--glass-highlight);
+            transform: translateY(-5px);
+        }
+
+        .metric-icon {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .metric-title {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        /* Danger specifics for fraud card */
+        .metric-card.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .metric-card.danger .metric-icon { color: var(--danger); }
+        .metric-card.danger .metric-value { color: var(--danger); }
+        .metric-card.danger:hover {
+            box-shadow: 0 10px 30px -10px var(--danger-glow);
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        /* Table Design */
+        .table-container {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            padding: 1.25rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.8rem;
+            border-bottom: 1px solid var(--glass-highlight);
+            z-index: 10;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+        }
+
+        /* Actions */
+        .actions-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            width: auto;
+            padding: 1rem 1.5rem;
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-main);
+            box-shadow: none;
+        }
+
+        /* Utilities */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-message {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+            height: 1.5rem;
+        }
+        .text-danger { color: var(--danger); }
+        .text-success { color: var(--success); }
+        
+        /* Staggered Animation Classes */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s forwards ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="dashboard" id="dashboard">
+        <!-- Upload View -->
+        <div id="uploadView">
+            <h1>Fraud Analysis AI</h1>
+            <p class="subtitle">Securely process your transaction batches to detect anomalies.</p>
+
+            <form id="uploadForm">
+                <div class="upload-zone" id="dropZone">
+                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                    <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--primary); font-weight: 600;">Click to browse</span> or drag file here
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">
+                        Accepts .CSV up to 50MB
+                    </div>
+                    <input type="file" id="fileInput" class="file-input" accept=".csv" required>
+                    <div id="fileName" class="file-name"></div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn" disabled>
+                    <span class="spinner" id="spinner"></span>
+                    <i class="fa-solid fa-microchip" id="btnIcon"></i>
+                    <span id="btnText">Initiate Scan</span>
+                </button>
+            </form>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <!-- Results View -->
+        <div id="resultsView">
+            <div class="results-header">
+                <h2>Analysis Complete</h2>
+                <button id="newScanBtn" class="btn btn-outline" style="padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem;">
+                    <i class="fa-solid fa-rotate-right"></i> New Scan
+                </button>
+            </div>
+
+            <div class="top-panels">
+                <!-- Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-card fade-in-up" style="animation-delay: 0.1s;">
+                        <div class="metric-icon" style="color: var(--primary);"><i class="fa-solid fa-file-lines"></i></div>
+                        <div class="metric-title">Total Scanned</div>
+                        <div class="metric-value" id="metricTotal">0</div>
+                    </div>
+                    <div class="metric-card fade-in-up" style="animation-delay: 0.2s;">
+                        <div class="metric-icon" style="color: var(--text-muted);"><i class="fa-solid fa-shield-halved"></i></div>
+                        <div class="metric-title">Safe Transactions</div>
+                        <div class="metric-value" id="metricSafe">0</div>
+                    </div>
+                    <div class="metric-card danger fade-in-up" style="animation-delay: 0.3s;">
+                        <div class="metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="metric-title">Fraud Detected</div>
+                        <div class="metric-value" id="metricFraud">0</div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="chart-container fade-in-up" style="animation-delay: 0.4s;">
+                    <canvas id="fraudChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container fade-in-up" style="animation-delay: 0.5s;">
+                <div class="table-scroll">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr id="tableHead"></tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="noDataMsg" style="display: none; padding: 3rem; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                        <p>No anomalies detected in this batch. All clear!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions-row fade-in-up" style="animation-delay: 0.6s;">
+                <button id="downloadCsvBtn" class="btn" style="width: auto;">
+                    <i class="fa-solid fa-download"></i>
+                    Export Anomalies (CSV)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const dashboard = document.getElementById('dashboard');
+        const uploadView = document.getElementById('uploadView');
+        const resultsView = document.getElementById('resultsView');
+        
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const uploadForm = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
+        const btnIcon = document.getElementById('btnIcon');
+        const btnText = document.getElementById('btnText');
+        const statusMessage = document.getElementById('statusMessage');
+
+        const metricTotal = document.getElementById('metricTotal');
+        const metricSafe = document.getElementById('metricSafe');
+        const metricFraud = document.getElementById('metricFraud');
+        
+        const tableHead = document.getElementById('tableHead');
+        const tableBody = document.getElementById('tableBody');
+        const noDataMsg = document.getElementById('noDataMsg');
+        const resultsTable = document.getElementById('resultsTable');
+
+        const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+        const newScanBtn = document.getElementById('newScanBtn');
+
+        let currentCsvData = null;
+        let chartInstance = null;
+
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => {
+            dropZone.addEventListener(eName, e => {
+                e.preventDefault(); e.stopPropagation();
+            });
+        });
+
+        ['dragenter', 'dragover'].forEach(eName => dropZone.classList.add('dragover'));
+        ['dragleave', 'drop'].forEach(eName => dropZone.classList.remove('dragover'));
+
+        dropZone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.endsWith('.csv')) {
+                fileInput.files = files;
+                updateFileDisplay();
+            } else {
+                showStatus('Invalid file type. Only .csv allowed.', 'text-danger');
+            }
+        });
+
+        fileInput.addEventListener('change', updateFileDisplay);
+
+        function updateFileDisplay() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (file.name.endsWith('.csv')) {
+                    fileNameDisplay.textContent = file.name;
+                    submitBtn.disabled = false;
+                    statusMessage.textContent = '';
+                } else {
+                    fileInput.value = '';
+                    showStatus('Invalid file type. Only .csv allowed.', 'text-danger');
+                }
+            }
+        }
+
+        // Animated Counter
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // easeOutQuart
+                const ease = 1 - Math.pow(1 - progress, 4);
+                obj.innerHTML = Math.floor(ease * (end - start) + start).toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!fileInput.files.length) return;
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Loading state
+            submitBtn.disabled = true;
+            spinner.style.display = 'block';
+            btnIcon.style.display = 'none';
+            btnText.textContent = 'Analyzing patterns...';
+            statusMessage.textContent = '';
+
+            try {
+                const response = await fetch('/predict', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('Network error');
+
+                const data = await response.json();
+                currentCsvData = data.csv_data;
+                const safeCount = data.total_scanned - data.fraud_detected;
+
+                // Transition UI
+                uploadView.style.display = 'none';
+                dashboard.classList.add('expanded');
+                
+                // Wait for expansion to finish before showing results
+                setTimeout(() => {
+                    resultsView.style.display = 'block';
+                    resultsView.style.opacity = '1';
+
+                    // Animate metrics
+                    animateValue(metricTotal, 0, data.total_scanned, 1500);
+                    animateValue(metricSafe, 0, safeCount, 1500);
+                    animateValue(metricFraud, 0, data.fraud_detected, 1500);
+
+                    // Render Chart
+                    renderChart(safeCount, data.fraud_detected);
+
+                    // Render Table
+                    renderTable(data.flagged_rows);
+                    
+                    if(data.fraud_detected === 0) {
+                        downloadCsvBtn.style.display = 'none';
+                    }
+                }, 400);
+
+            } catch (error) {
+                console.error(error);
+                showStatus('An error occurred during analysis.', 'text-danger');
+                submitBtn.disabled = false;
+            } finally {
+                spinner.style.display = 'none';
+                btnIcon.style.display = 'inline-block';
+                btnText.textContent = 'Initiate Scan';
+            }
+        });
+
+        function renderChart(safe, fraud) {
+            const ctx = document.getElementById('fraudChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Safe', 'Fraud'],
+                    datasets: [{
+                        data: [safe, fraud],
+                        backgroundColor: ['rgba(255, 255, 255, 0.1)', '#ef4444'],
+                        borderColor: ['rgba(255, 255, 255, 0.2)', '#ef4444'],
+                        borderWidth: 1,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Outfit' } } }
+                    }
+                }
+            });
+        }
+
+        function renderTable(rows) {
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            if (!rows || rows.length === 0) {
+                resultsTable.style.display = 'none';
+                noDataMsg.style.display = 'block';
+                return;
+            }
+
+            resultsTable.style.display = 'table';
+            noDataMsg.style.display = 'none';
+
+            const allHeaders = Object.keys(rows[0]);
+            const priorityHeaders = ['Risk_Score', 'Amount', 'Time'];
+            const otherHeaders = allHeaders.filter(h => !priorityHeaders.includes(h));
+            const headers = [...priorityHeaders.filter(h => allHeaders.includes(h)), ...otherHeaders];
+            
+            // Add Status Column first
+            const statusTh = document.createElement('th');
+            statusTh.textContent = 'Status';
+            tableHead.appendChild(statusTh);
+
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header.replace(/_/g, ' ');
+                tableHead.appendChild(th);
+            });
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                // Status Badge
+                const statusTd = document.createElement('td');
+                statusTd.innerHTML = '<span class="status-pill">Anomaly</span>';
+                tr.appendChild(statusTd);
+
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    let val = row[header];
+                    
+                    if (header === 'Risk_Score' && val !== null) {
+                        let color = '#10b981'; // low risk
+                        if (val > 75) color = '#ef4444'; // critical
+                        else if (val > 40) color = '#f59e0b'; // medium
+                        
+                        td.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="flex-grow: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; min-width: 60px; max-width: 100px;">
+                                <div style="width: ${val}%; height: 100%; background: ${color};"></div>
+                            </div>
+                            <span style="color: ${color}; font-weight: 600; font-size: 0.8rem;">${val.toFixed(1)}</span>
+                        </div>`;
+                    }
+                    else if (header === 'Amount' && val !== null) {
+                        td.innerHTML = `<span style="color: #a5b4fc; font-weight: 600; letter-spacing: 0.05em;">$${parseFloat(val).toFixed(2)}</span>`;
+                    }
+                    else if (typeof val === 'number') {
+                        td.textContent = Number.isInteger(val) ? val : parseFloat(val).toFixed(4);
+                    } else {
+                        td.textContent = val !== null ? val : '-';
+                    }
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+        }
+
+        downloadCsvBtn.addEventListener('click', () => {
+            if (!currentCsvData) return;
+            const blob = new Blob([currentCsvData], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'anomalies_report.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        });
+
+        newScanBtn.addEventListener('click', () => {
+            resultsView.style.opacity = '0';
+            
+            setTimeout(() => {
+                resultsView.style.display = 'none';
+                dashboard.classList.remove('expanded');
+                
+                setTimeout(() => {
+                    uploadView.style.display = 'block';
+                    fileInput.value = '';
+                    fileNameDisplay.textContent = '';
+                    submitBtn.disabled = true;
+                    statusMessage.textContent = '';
+                    currentCsvData = null;
+                    downloadCsvBtn.style.display = 'flex'; // Reset display
+                }, 400);
+            }, 300);
+        });
+
+        function showStatus(msg, type) {
+            statusMessage.textContent = msg;
+            statusMessage.className = 'status-message ' + type;
+        }
+    </script>
+</body>
+</html>
