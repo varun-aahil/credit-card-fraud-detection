@@ -1,42 +1,62 @@
-# Credit Card Fraud Detection (Anomaly Detection)
 
-The Aim:
+# Credit Card Fraud Detection
 
-Given the transaction data in the dataset - we want to detect fraudulent transactions (a mere 0.43% out of 284.807), when even by guessing the transaction is not fraudulent on all transactions it would still hit 99.5% accuracy, which is useless. We want to try and detect these minority class examples, that is anomalies in this dataset and evaluate the predictions with Confusion matrix, precision and recall metrics.
-
-The Dataset:
-
-* Number of transactions: 284,807
-
-* Fraudulent transactions: 492
-
-* Imbalance: Fraud data is 0.172% of overall data
-* Features: We have Time (time since the first transaction in the dataset), Amount, and 28 principle components with anonymized feature names V1-V28.
-
-### The creditcard.csv raw data is available at kaggle here - https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud 
-
-The Methodology:
-
-* The model: I decided to go with the unsupervised 'Isolation Forest'. This approach is to explicitly isolate the outliers by randomly partitioning a random subset of the data using random splitting criteria for random features. This is efficient in the high-dimensional dataset.
-* Data processing: I scaled the feature matrix to standardize the financial amount that might heavily outweigh other metrics. 
-* Evaluation: We skip the traditional accuracyscore here, we use classificationreport.
-
-The Result & Business Implications:
-
-After playing with the contamination this anomaly detection model managed to isolate 28.4% of all fraudulent transactions at best while not predicting alot of false postiives. In an actual use case - one can tweak the contamination value in Isolation Forest that helps the business to decide the threshold in how many anomalies they want detected, highlighting the most crucial business decision: as recall is maximised (all fraud identified), the precision will fall due to increase in false positives, hence declining valid transactions. This serves as the starting base.
-
-The Tech Stack:
-
-* Language: Python
-
-* Libraries used: Sklearn, Pandas, Numpy, Matplotlib
-
-## Fraud Detection UI Dashboard
-
-To make the AI model's results interpretable and actionable for human reviewers, a sophisticated glassmorphism web dashboard was built. 
-- Automatically extracts the raw anomaly decision score and normalizes it into a **0-100 Risk Score**.
-- Reorders the dataset columns to highlight actionable fields first (`Risk Score`, `Amount`, `Time`).
-- Provides a clean, staggered-animation UI powered by Chart.js for visualization.
+Detecting fraudulent card transactions in a heavily imbalanced dataset, comparing unsupervised anomaly detection against supervised models, and serving the result through a FastAPI dashboard.
 
 <img width="1280" height="731" alt="image" src="https://github.com/user-attachments/assets/b64c6d95-3f07-4375-937b-76802c091b09" />
 
+
+## Problem
+
+Only **492 of 284,807 transactions (0.172%)** are fraud. A model that predicts "not fraud" every time scores about 99.8% accuracy and catches nothing, so accuracy is the wrong metric here. This project evaluates with **precision, recall, F1, and PR-AUC** instead.
+
+## Dataset
+
+[Credit Card Fraud Detection (Kaggle, ULB)](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud)
+
+- 284,807 transactions, 492 fraudulent
+- Features: `Time`, `Amount`, and 28 anonymized PCA components (`V1` to `V28`)
+
+## Approach
+
+1. **Baseline: Isolation Forest (unsupervised).** Scaled the features and tuned the `contamination` parameter to trade off recall against false positives.
+2. **Supervised models:** <!-- TODO: Logistic Regression / Random Forest / XGBoost with class weights or SMOTE -->
+3. **Evaluation:** confusion matrix, precision, recall, F1, PR-AUC on a held-out test set.
+
+## Results
+
+| Model | Precision | Recall | F1 | PR-AUC |
+|---|---|---|---|---|
+| Isolation Forest (best contamination) | TODO | 0.284 | TODO | TODO |
+| Logistic Regression (class weights) | TODO | TODO | TODO | TODO |
+| Random Forest / XGBoost + SMOTE | TODO | TODO | TODO | TODO |
+
+**Takeaway:** the Isolation Forest caught about 28.4% of fraud at best, which makes it a starting baseline rather than a production model. Raising recall costs precision, since more legitimate transactions get flagged and blocked. <!-- TODO: add one sentence on what the supervised models changed -->
+
+## Dashboard
+
+A FastAPI backend serves the trained pipeline (`fraud_pipeline.joblib`) and a small web UI:
+
+- Converts the model's anomaly score into a **0 to 100 risk score**
+- Puts the actionable columns first (`Risk Score`, `Amount`, `Time`)
+- Charts built with Chart.js
+
+## Run locally
+
+```bash
+git clone https://github.com/varun-aahil/credit-card-fraud-detection.git
+cd credit-card-fraud-detection
+pip install -r requirements.txt   # TODO: add this file
+uvicorn main:app --reload
+```
+
+Open http://127.0.0.1:8000. To retrain, run `credit_card_fraud_detection.ipynb` (download `creditcard.csv` from Kaggle first).
+
+## Tech stack
+
+Python, scikit-learn, pandas, NumPy, Matplotlib, FastAPI, Chart.js
+
+## Limitations and next steps
+
+- Only 492 positive examples, so results are sensitive to the train/test split. Consider stratified cross-validation.
+- Threshold tuning based on the cost of a missed fraud vs. a blocked legitimate transaction.
